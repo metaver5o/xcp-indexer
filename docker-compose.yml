@@ -1,0 +1,33 @@
+# Attach to the same network as your counterinscriptions stack
+# so xcp-indexer-backend can reach counterparty-server:4000
+networks:
+  default:
+    name: counterinscriptions_default
+    external: true
+
+services:
+  xcp-indexer-backend:
+    build: ./backend
+    container_name: xcp-indexer-backend
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - XCP_URL=http://counterparty-server:4000
+      - PORT=3002
+      - POLL_INTERVAL_MS=30000
+      - DB_PATH=/app/data/indexer.db
+
+  xcp-indexer-frontend:
+    build:
+      context: ./frontend
+      args:
+        REACT_APP_API_URL: http://localhost:3002/api
+    container_name: xcp-indexer-frontend
+    restart: unless-stopped
+    ports:
+      - "3003:80"
+    depends_on:
+      - xcp-indexer-backend

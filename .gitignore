@@ -1,0 +1,6 @@
+	xcp-indexer.zip
+.git
+.DS_Store
+data
+xcp-indexer.zip
+node_modules/
