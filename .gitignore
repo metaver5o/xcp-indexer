@@ -4,3 +4,4 @@
 data
 xcp-indexer.zip
 node_modules/
+.aider*
