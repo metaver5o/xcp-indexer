@@ -57,14 +57,17 @@ db.exec(`
     updated_at     INTEGER
   );
 
-  CREATE INDEX IF NOT EXISTS idx_iso_block      ON issuances(block_index);
-  CREATE INDEX IF NOT EXISTS idx_iso_source     ON issuances(source);
-  CREATE INDEX IF NOT EXISTS idx_iso_asset      ON issuances(asset);
-  CREATE INDEX IF NOT EXISTS idx_iso_insc       ON issuances(inscription);
-  CREATE INDEX IF NOT EXISTS idx_iso_mime       ON issuances(mime_type);
-  CREATE INDEX IF NOT EXISTS idx_asset_owner    ON assets(owner);
-  CREATE INDEX IF NOT EXISTS idx_asset_insc     ON assets(inscription);
-  CREATE INDEX IF NOT EXISTS idx_asset_block    ON assets(last_block);
+  CREATE INDEX IF NOT EXISTS idx_iso_block          ON issuances(block_index);
+  CREATE INDEX IF NOT EXISTS idx_iso_source         ON issuances(source);
+  CREATE INDEX IF NOT EXISTS idx_iso_asset          ON issuances(asset);
+  CREATE INDEX IF NOT EXISTS idx_iso_insc           ON issuances(inscription);
+  CREATE INDEX IF NOT EXISTS idx_iso_mime           ON issuances(mime_type);
+  CREATE INDEX IF NOT EXISTS idx_asset_owner        ON assets(owner);
+  CREATE INDEX IF NOT EXISTS idx_asset_insc         ON assets(inscription);
+  CREATE INDEX IF NOT EXISTS idx_asset_block        ON assets(last_block);
+  CREATE INDEX IF NOT EXISTS idx_iso_insc_block     ON issuances(inscription, block_index DESC);
+  CREATE INDEX IF NOT EXISTS idx_iso_mime_block     ON issuances(mime_type, block_index DESC);
+  CREATE INDEX IF NOT EXISTS idx_asset_insc_block   ON assets(inscription, last_block DESC);
 `);
 
 // ─── State helpers ────────────────────────────────────────────────────────────
@@ -343,11 +346,12 @@ app.get('/api/status', (_req, res) => {
 
 // Issuances — paginated, filterable
 app.get('/api/issuances', (req, res) => {
-  const limit  = Math.min(parseInt(req.query.limit  || '50'), 200);
+  const limit  = Math.min(parseInt(req.query.limit  || '50'), 1000);
   const offset = parseInt(req.query.offset || '0');
   const { inscription, mime_type, asset, source } = req.query;
 
-  let where = '1=1', p = [];
+  // BTC and XCP are Counterparty protocol-level assets, not user-created XCP inscriptions
+  let where = "asset NOT IN ('BTC','XCP')", p = [];
   if (inscription !== undefined) { where += ' AND inscription=?'; p.push(inscription === 'true' ? 1 : 0); }
   if (mime_type)  { where += ' AND mime_type LIKE ?'; p.push(`%${mime_type}%`); }
   if (asset)      { where += ' AND asset=?';          p.push(asset.toUpperCase()); }
@@ -360,11 +364,11 @@ app.get('/api/issuances', (req, res) => {
 
 // Assets — paginated, filterable
 app.get('/api/assets', (req, res) => {
-  const limit  = Math.min(parseInt(req.query.limit  || '50'), 200);
+  const limit  = Math.min(parseInt(req.query.limit  || '50'), 1000);
   const offset = parseInt(req.query.offset || '0');
   const { inscription, search, owner } = req.query;
 
-  let where = '1=1', p = [];
+  let where = "asset NOT IN ('BTC','XCP')", p = [];
   if (inscription !== undefined) { where += ' AND inscription=?'; p.push(inscription === 'true' ? 1 : 0); }
   if (owner)  { where += ' AND owner=?';              p.push(owner); }
   if (search) { where += ' AND (asset LIKE ? OR asset_longname LIKE ? OR owner LIKE ?)'; p.push(`%${search}%`, `%${search}%`, `%${search}%`); }
