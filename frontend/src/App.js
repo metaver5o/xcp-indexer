@@ -43,6 +43,7 @@ const fmt = {
   addr: a => a ? `${a.slice(0,10)}…${a.slice(-6)}` : '—',
   num:  n => Number(n||0).toLocaleString(),
   time: t => t ? new Date(t*1000).toLocaleString() : '—',
+  date: t => t ? new Date(t*1000).toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' }) : '—',
 };
 
 async function api(path) {
@@ -138,12 +139,17 @@ function InscriptionBadge({ v }) {
 }
 
 function Thumb({ tx, mime }) {
+  const imgRef = useRef(null);
   if (!tx || !mime) return null;
   const cat = mime.split('/')[0];
   const url = `${API}/content/${tx}`;
   if (cat === 'image') return (
-    <img src={url} alt="" loading="lazy"
-      style={{ width:36, height:36, objectFit:'cover', borderRadius:6, display:'block', background:C.border }} />
+    <div style={{ width:36, height:36, borderRadius:6, overflow:'hidden', background:C.border, flexShrink:0 }}
+      onMouseEnter={() => { if (imgRef.current) imgRef.current.style.transform = 'scale(1.3)'; }}
+      onMouseLeave={() => { if (imgRef.current) imgRef.current.style.transform = 'scale(1)'; }}>
+      <img ref={imgRef} src={url} alt="" loading="lazy"
+        style={{ width:'100%', height:'100%', objectFit:'cover', display:'block', transition:'transform 0.35s ease' }} />
+    </div>
   );
   const icons = { audio:'♪', video:'▶', text:'⟨/⟩', application:'⬡' };
   return <span style={{ fontSize:'1.2rem', lineHeight:1 }}>{icons[cat] || '⬡'}</span>;
@@ -151,22 +157,27 @@ function Thumb({ tx, mime }) {
 
 // ─── Gallery card ─────────────────────────────────────────────────────────────
 function GalleryCard({ iso, navigate }) {
-  const ref = useRef(null);
+  const ref    = useRef(null);
+  const imgRef = useRef(null);
   const cat = (iso.mime_type || '').split('/')[0];
   const contentUrl = `${API}/content/${iso.tx_hash}`;
   const iconMap = { audio:'♪', video:'▶', text:'⟨/⟩', application:'⬡' };
 
   const onEnter = () => {
-    if (!ref.current) return;
-    ref.current.style.transform   = 'translateY(-3px)';
-    ref.current.style.borderColor = C.accent;
-    ref.current.style.boxShadow   = `0 8px 24px ${C.accent}20`;
+    if (ref.current) {
+      ref.current.style.transform   = 'translateY(-3px)';
+      ref.current.style.borderColor = C.accent;
+      ref.current.style.boxShadow   = `0 8px 24px ${C.accent}20`;
+    }
+    if (imgRef.current) imgRef.current.style.transform = 'scale(1.1)';
   };
   const onLeave = () => {
-    if (!ref.current) return;
-    ref.current.style.transform   = '';
-    ref.current.style.borderColor = C.border;
-    ref.current.style.boxShadow   = 'none';
+    if (ref.current) {
+      ref.current.style.transform   = '';
+      ref.current.style.borderColor = C.border;
+      ref.current.style.boxShadow   = 'none';
+    }
+    if (imgRef.current) imgRef.current.style.transform = 'scale(1)';
   };
 
   return (
@@ -180,8 +191,8 @@ function GalleryCard({ iso, navigate }) {
       {/* Square content area */}
       <div style={{ aspectRatio:'1/1', background:'#000', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', position:'relative' }}>
         {cat === 'image' ? (
-          <img src={contentUrl} alt="" loading="lazy"
-            style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} />
+          <img ref={imgRef} src={contentUrl} alt="" loading="lazy"
+            style={{ width:'100%', height:'100%', objectFit:'cover', display:'block', transition:'transform 0.35s ease' }} />
         ) : (
           <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:10 }}>
             <span style={{ fontSize:'2.8rem', opacity:0.4 }}>{iconMap[cat] || '⬡'}</span>
@@ -194,12 +205,16 @@ function GalleryCard({ iso, navigate }) {
       </div>
       {/* Footer */}
       <div style={{ padding:'10px 12px' }}>
-        <div style={{ fontFamily:C.mono, fontSize:'0.78rem', color:C.accent2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:3 }}>
+        <div style={{ fontFamily:C.mono, fontSize:'0.78rem', color:C.accent2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:4 }}>
           {iso.asset}
         </div>
+        <div style={{ fontSize:'0.7rem', color:C.text, marginBottom:2 }}
+          title={fmt.time(iso.block_time)}>
+          {fmt.date(iso.block_time)}
+        </div>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-          <span style={{ fontSize:'0.66rem', color:C.muted }}>Block {fmt.num(iso.block_index)}</span>
-          <span style={{ fontFamily:C.mono, fontSize:'0.64rem', color:C.muted }}>{fmt.hash(iso.tx_hash)}</span>
+          <span style={{ fontSize:'0.64rem', color:C.muted }}>Block {fmt.num(iso.block_index)}</span>
+          <span style={{ fontFamily:C.mono, fontSize:'0.62rem', color:C.muted }}>{fmt.hash(iso.tx_hash)}</span>
         </div>
       </div>
     </div>
@@ -427,6 +442,7 @@ function InscriptionsPage({ initialMime, navigate }) {
               <th style={S.th}></th>
               <th style={S.th}>Asset</th>
               <th style={S.th}>From</th>
+              <th style={S.th}>Date</th>
               <th style={S.th}>Block</th>
               <th style={S.th}>MIME</th>
             </tr></thead>
@@ -448,6 +464,9 @@ function InscriptionsPage({ initialMime, navigate }) {
                       onClick={e => { e.stopPropagation(); navigate('address', iso.source); }}>
                       {fmt.addr(iso.source)}
                     </span>
+                  </td>
+                  <td style={S.td} title={fmt.time(iso.block_time)}>
+                    <span style={{ color:C.text, fontSize:'0.78rem' }}>{fmt.date(iso.block_time)}</span>
                   </td>
                   <td style={S.td}><span style={{ color:C.muted }}>{fmt.num(iso.block_index)}</span></td>
                   <td style={S.td}><MimeBadge mime={iso.mime_type} /></td>
@@ -504,6 +523,7 @@ function IssuancesPage({ navigate }) {
                 <th style={S.th}></th>
                 <th style={S.th}>Asset</th>
                 <th style={S.th}>From</th>
+                <th style={S.th}>Date</th>
                 <th style={S.th}>Block</th>
                 <th style={S.th}>MIME</th>
                 <th style={S.th}>Type</th>
@@ -526,6 +546,9 @@ function IssuancesPage({ navigate }) {
                         onClick={e => { e.stopPropagation(); navigate('address', iso.source); }}>
                         {fmt.addr(iso.source)}
                       </span>
+                    </td>
+                    <td style={S.td} title={fmt.time(iso.block_time)}>
+                      <span style={{ color:C.text, fontSize:'0.78rem' }}>{fmt.date(iso.block_time)}</span>
                     </td>
                     <td style={S.td}><span style={{ color:C.muted }}>{fmt.num(iso.block_index)}</span></td>
                     <td style={S.td}><MimeBadge mime={iso.mime_type} /></td>
